@@ -26,11 +26,11 @@ const game = {
   // and much more
   gameBoard: null,
   selectedCardFront: null,
-  penalty: false,
+  hasPenalty: false,
   levelOneLeft: 4,
   levelTwoLeft: 16,
   levelThreeLeft: 36,
-  endFlg: false
+  isEnd: false
 };
 
 setGame();
@@ -53,6 +53,17 @@ function startGame() {
   bindCardClick();
 }
 
+function levelUp() {
+  clearInterval(game.timerInterval);
+  setTimeout(function () {
+    game.level++;
+    updateLevel();
+    resetTimer();
+    updateTimerDisplay();
+    nextLevel();
+  }, 2000);
+}
+
 function handleClearCards() {
   // update score
   updateScore();
@@ -60,26 +71,12 @@ function handleClearCards() {
   if (game.level === 1) {
     game.levelOneLeft -= 2;
     if (game.levelOneLeft === 0) {
-      clearInterval(game.timerInterval);
-      setTimeout(function () {
-        game.level = 2;
-        updateLevel();
-        resetTimer();
-        updateTimerDisplay();
-        nextLevel();
-      }, 2000)
+      levelUp();
     }
   } else if (game.level === 2) {
     game.levelTwoLeft -= 2;
     if (game.levelTwoLeft == 0) {
-      clearInterval(game.timerInterval);
-      setTimeout(function () {
-        game.level = 3;
-        updateLevel();
-        resetTimer();
-        updateTimerDisplay();
-        nextLevel();
-      }, 2000);
+      levelUp();
     }
   } else if (game.level === 3) {
     game.levelThreeLeft -= 2;
@@ -97,7 +94,7 @@ function nextLevel() {
 
   // create document fragment
   const docFragment = document.createDocumentFragment();
-  for (const i in  arrayCard) {
+  for (const i in arrayCard) {
     // create card div
     const divCard = document.createElement('div');
     divCard.setAttribute('class', 'card ' + arrayCard[i]);
@@ -148,7 +145,7 @@ function shuffle(cards) {
 }
 
 function handleGameOver() {
-  game.endFlg = true;
+  game.isEnd = true;
   alert('Congratulations, your score is ' + game.score);
   game.startButton.innerHTML = 'New Game';
 }
@@ -167,7 +164,7 @@ function updateLevel() {
 
 function updateTimerDisplay() {
   game.timerInterval = setInterval(function () {
-    if (game.endFlg) {
+    if (game.isEnd) {
       clearInterval(game.timerInterval);
       return;
     }
@@ -189,7 +186,7 @@ function bindStartButton() {
   game.startButton.addEventListener('click', function () {
     if (this.innerHTML === 'New Game') {
       this.innerHTML = 'End Game';
-      initialGame();
+      initializeGame();
       // generate card layout
       nextLevel();
       updateTimerDisplay();
@@ -205,8 +202,8 @@ function resetTimer() {
   game.timerDisplay.style = null;
 }
 
-function initialGame() {
-  game.endFlg = false;
+function initializeGame() {
+  game.isEnd = false;
   game.levelOneLeft = 4;
   game.levelTwoLeft = 16;
   game.levelThreeLeft = 36;
@@ -221,10 +218,8 @@ function bindCardClick() {
   // bubble event up to game board div
   game.gameBoard.addEventListener('click', function (event) {
     const target = event.target;
-    if (game.endFlg || target === this) {
-      return;
-    }
-    if (game.penalty || target.parentElement.hasAttribute('data-matched')) {
+    if (game.isEnd || target === this ||
+      game.hasPenalty || target.parentElement.hasAttribute('data-matched')) {
       return;
     }
     // if selecting the card the first time
@@ -232,34 +227,34 @@ function bindCardClick() {
       game.selectedCardFront = target;
       // flip card
       flipCard(game.selectedCardFront);
+      return;
+    }
+    const comparedCardFront = target.parentElement.firstElementChild;
+    // if selecting the same card
+    if (game.selectedCardFront === comparedCardFront) {
+      flipBackCard(game.selectedCardFront);
+      game.selectedCardFront = null;
     } else {
-      const comparedCardFront = target.parentElement.firstElementChild;
-      // if selecting the same card
-      if (game.selectedCardFront === comparedCardFront) {
-        flipBackCard(game.selectedCardFront);
+      // flip card
+      flipCard(target);
+      const selectedCardParent = game.selectedCardFront.parentElement;
+      const comparedCardParent = target.parentElement;
+      // if two selected card has the same value of the class attribute
+      if (selectedCardParent.getAttribute('class')
+        === comparedCardParent.getAttribute('class')) {
+        game.selectedCardFront.parentElement.dataset.matched = '1';
+        target.parentElement.dataset.matched = '1';
         game.selectedCardFront = null;
-      } else {
-        // flip card
-        flipCard(target);
-        const selectedCardParent = game.selectedCardFront.parentElement;
-        const comparedCardParent = target.parentElement;
-        // if two selected card has the same value of the class attribute
-        if (selectedCardParent.getAttribute('class')
-          === comparedCardParent.getAttribute('class')) {
-          game.selectedCardFront.parentElement.dataset.matched = '1';
-          target.parentElement.dataset.matched = '1';
-          game.selectedCardFront = null;
 
-          handleClearCards();
-        } else {
-          game.penalty = true;
-          // flip back after 1.5 seconds
-          setTimeout(function () {
-            game.penalty = false;
-            flipBackCard(game.selectedCardFront, target);
-            game.selectedCardFront = null;
-          }, 1500);
-        }
+        handleClearCards();
+      } else {
+        game.hasPenalty = true;
+        // flip back after 1.5 seconds
+        setTimeout(function () {
+          game.hasPenalty = false;
+          flipBackCard(game.selectedCardFront, target);
+          game.selectedCardFront = null;
+        }, 1500);
       }
     }
   });
